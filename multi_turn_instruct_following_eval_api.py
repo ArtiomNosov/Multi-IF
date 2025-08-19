@@ -28,7 +28,12 @@ from metrics import MultiTurnInstructionFollowingPromptSolution
 from utils import GenerationSetting
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
+
+# Отключить логи внешних библиотек
+logging.getLogger('urllib3').setLevel(logging.WARNING)
+logging.getLogger('giga.client').setLevel(logging.WARNING)
+logging.getLogger('requests').setLevel(logging.WARNING)
 
 lock = Lock()
 
@@ -126,7 +131,7 @@ def step_fn_api(
 def consolidate_results(api_model_name, output_filepath_prefix, steps):
     consolidated_df = None
     for step in steps:
-        step_csv = f"results/{api_model_name}/{output_filepath_prefix}_step_{step}.csv"
+        step_csv = f"data/results/{api_model_name}/{output_filepath_prefix}_step_{step}.csv"
         if os.path.exists(step_csv):
             temp_df = pd.read_csv(step_csv, keep_default_na=False)
             if consolidated_df is None:
@@ -138,7 +143,7 @@ def consolidate_results(api_model_name, output_filepath_prefix, steps):
             logger.warning(f"Step {step} file {step_csv} does not exist and will be skipped.")
 
     if consolidated_df is not None:
-        consolidated_csv = f"results/{api_model_name}/{output_filepath_prefix}_consolidated.csv"
+        consolidated_csv = f"data/results/{api_model_name}/{output_filepath_prefix}_consolidated.csv"
         consolidated_df.to_csv(consolidated_csv, index=False)
         logger.info(f"All steps consolidated into {consolidated_csv}")
     else:
@@ -165,9 +170,9 @@ def main(
     step_input_df = benchmark_df.copy()
     for step in steps:  # Use the user-provided steps
         output_filepath = (
-            f"results/{api_model_name}/{output_filepath_prefix}_step_{step}.csv"
+            f"data/results/{api_model_name}/{output_filepath_prefix}_step_{step}.csv"
         )
-        os.makedirs(f'results/{api_model_name}', exist_ok=True)
+        os.makedirs(f'data/results/{api_model_name}', exist_ok=True)
         step_output_df = step_fn_api(
             api_bot=api_bot,
             input_df=step_input_df,
@@ -194,7 +199,7 @@ def run_metric(
     step: int = 1
 ):
     step_output_df = None
-    step_csv = f"results/{api_model_name}/{output_filepath_prefix}_step_{step}.csv"
+    step_csv = f"data/results/{api_model_name}/{output_filepath_prefix}_step_{step}.csv"
     if not os.path.exists(step_csv):
         logger.warning(f"CSV file {step_csv} does not exist and will be skipped.")
         return {}
@@ -207,7 +212,7 @@ def run_metric(
             step_output_df
         )
         metric_result_df = pd.DataFrame.from_dict(metric_result, orient="index")
-        metric_result_df.to_csv(f"results/{api_model_name}/{output_filepath_prefix}_step_{step}_metric.csv")
+        metric_result_df.to_csv(f"data/results/{api_model_name}/{output_filepath_prefix}_step_{step}_metric.csv")
         logger.info(f"Step {step} metrics:\n{metric_result}")
         return metric_result
     else:

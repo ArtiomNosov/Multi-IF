@@ -26,7 +26,7 @@ from vllm import LLM
 from vllm.sampling_params import SamplingParams
 
 logger: logging.Logger = logging.getLogger(__name__)
-logging.basicConfig(level=logging.DEBUG)
+logging.basicConfig(level=logging.INFO)
 
 @dataclass 
 class GenerationSetting:

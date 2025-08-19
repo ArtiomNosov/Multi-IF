@@ -228,14 +228,7 @@ class GigaChatBot(APIBot):
 
     @staticmethod
     def check_name(name):
-        if name.lower() in [
-            'gigachat',
-            'giga',
-            'giga-chat',
-            # Add any other supported GigaChat model names here
-        ]:
-            return True
-        return False
+        return 'giga' in name.lower()
 
 
 if __name__ == '__main__':

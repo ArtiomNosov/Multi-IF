@@ -12,6 +12,9 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 import os
+import time
+import threading
+from requests.exceptions import RequestException
 
 import anthropic
 import google.generativeai as genai
@@ -21,6 +24,13 @@ from openai import OpenAI
 
 from utils import GenerationSetting
 
+# Global variables for GigaChat client management
+CLIENT = None
+LOCK = threading.Lock()
+API_MAX_RETRY = 3
+API_RETRY_SLEEP = 1
+API_REQUEST_DELAY = 0.0  # Global delay between API requests in seconds
+API_ERROR_OUTPUT = "Error: Failed to get response from GigaChat API"
 
 def get_api_bot(model_name, generation_setting):
     if OpenAIBot.check_name(model_name):
@@ -31,6 +41,8 @@ def get_api_bot(model_name, generation_setting):
         return GeminiBot(model_name, generation_setting)
     elif MistralBot.check_name(model_name):
         return MistralBot(model_name, generation_setting)
+    elif GigaChatBot.check_name(model_name):
+        return GigaChatBot(model_name, generation_setting)
     else:
         raise NotImplementedError(f"The model {model_name} is not supported yet.")
 
@@ -179,6 +191,51 @@ class MistralBot(APIBot):
             return True
         return False
 
+
+class GigaChatBot(APIBot):
+    def __init__(self, model, generation_config):
+        super().__init__(model, generation_config)
+        # GigaChat client will be initialized lazily when first used
+
+    def generate(self, messages):
+        global CLIENT
+
+        with LOCK:
+            if CLIENT is None:
+                try:
+                    from giga import GigaChat
+                    CLIENT = GigaChat()
+                except ImportError:
+                    raise ImportError("GigaChat module not found. Please install it with: pip install giga @ git+https://git@gitlab.com/ru.ush/lightweight-gigachat.git@module")
+
+        assert CLIENT is not None
+        output = API_ERROR_OUTPUT
+        for _ in range(API_MAX_RETRY):
+            try:
+                response = CLIENT.chat(
+                    model=self.model_name,
+                    messages=messages,
+                    temperature=self.generation_config.temperature,
+                    max_tokens=self.generation_config.max_new_tokens,
+                )
+                output = response["choices"][0]["message"]["content"]
+                break
+            except RequestException as e:
+                print(type(e), e)
+                time.sleep(API_RETRY_SLEEP)
+
+        return output
+
+    @staticmethod
+    def check_name(name):
+        if name.lower() in [
+            'gigachat',
+            'giga',
+            'giga-chat',
+            # Add any other supported GigaChat model names here
+        ]:
+            return True
+        return False
 
 
 if __name__ == '__main__':
